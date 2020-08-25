@@ -1,0 +1,129 @@
+1.GetIFTradeData_Open_30m 取1分钟频率的期货数据
+Function GetIFTradeData_Open_30m(TempBegT,TempEndT,IndexFutureCode);
+Begin
+
+  //汇总IH各合约在指定区间段内的持仓量、收盘价数据
+   TempBegT:='2020-7-21';
+   TempEndT:='2020-7-30';
+   IndexFutureCode:='IF';
+   Ov:=BackUpSystemParameters2();
+   SetSysParam(PN_Stock(),'SH000300');
+   SetSysParam(PN_Precision(),4);
+   ThisBegT:=StrToDate(TempBegT);
+   ThisEndT:=StrToDate(TempEndT);
+   SetSysParam(PN_Date(),ThisEndT);
+
+   //现货指数代码
+   IndexFutureList:=Array('IF','IH','IC');
+   SpotIndexList:=Array('SH000300','SH000016','SH000905');
+   CheckPos:=MFind(IndexFutureList,MCell=IndexFutureCode)[0][0];
+   SpotIndexCode:=SpotIndexList[CheckPos];
+
+   TempFirstDay:=StockFirstDay(IndexFutureCode+'00');  //期指首日上市日
+   ThisBegT:=Max(ThisBegT,TempFirstDay); //保证在首日上市日之后
+   setsysparam(pn_cycle(),cy_day());
+   ThisTradeDate:=MarketTradeDayQk(ThisBegT,ThisEndT); //交易日期
+   SetSysParam(PN_Cycle(),cy_1m());
+
+   AllData:=Array();
+   For DateI:=0 To Length(ThisTradeDate)-1 Do
+   Begin
+      ThisDate:=ThisTradeDate[DateI];
+      TempContract:=UpperCase(GetFuturesID(IndexFutureCode,ThisDate));
+      Tempbase:=array();
+      for j:=0 to length(TempContract)-1 do
+          Tempbase[TempContract[j]]:=spec(base(703018),TempContract[j]);
+      //Tempbase:= select ['StockID'],['最后交易日'] from infotable 703 of  TempContract end;
+      ThisData:= select ['StockID'],DateToStr(['date']) as 'Date',TimeToStr(timeof(['date'])) as 'Time',
+                    ['open'],['close'],['high'],['low'],['vol'],
+                    ['sectional_cjbs'] As 'OI', //持仓量
+                    Tempbase[['StockID']] As 'SettleDate',
+                    inttodate(Tempbase[['StockID']])-ThisDate As 'Maturity'
+                  from markettable datekey ThisDate to ThisDate+0.999999 of TempContract end;
+      AllData&= ThisData;
+   End
+   Return AllData;
+
+End
+
+
+2.GetIFOpenData 取9:29集合竞价数据
+
+//TSL Script file
+//读取IF每日的开盘数据（集合竞价）
+
+    r:=array();
+    begt:=20200721T;
+    endt:=20200730T;
+
+    IndexFutureCode:='IF';
+    bt:=9/24+24/24/60;
+    et:=9.4999/24;
+    t:=MarketTradeDayQk(BegT,EndT);
+
+    for i:=0 to length(t)-1 do
+    begin
+         vEndt:=t[i];
+         TempContract:=UpperCase(GetFuturesID(IndexFutureCode,vEndt));
+         r&=select ['StockID'],['StockName'],DateToStr(['date']) as 'Date',TimeToStr(timeof(['date'])) as 'Time',['price'],['vol'],['amount'],['sectional_cjbs'] as 'OI'
+         //from tradetable datekey vEndt+bt to vEndt+et of stocks
+         from tradetable datekey vEndt+bt to vEndt+et of TempContract
+             //where ['vol']>0 end;
+             end
+    end
+    return r;
+
+3.GetIFDailyTradeData 取每日开收高低
+
+//TSL Script file
+
+  ThisBegT:=20200721T;
+  ThisEndT:=20200730T;
+  ThisTradeDate:=MarketTradeDayQk(ThisBegT,ThisEndT); //交易日期
+  IndexFutureCode:='IF';
+  
+  AllData:=Array();
+   For DateI:=0 To Length(ThisTradeDate)-1 Do
+   Begin
+      ThisDate:=ThisTradeDate[DateI];
+      TempContract:=UpperCase(GetFuturesID(IndexFutureCode,ThisDate));
+      Tempbase:=array();
+      for j:=0 to length(TempContract)-1 do
+      Tempbase[TempContract[j]]:=spec(base(703018),TempContract[j]);
+      ThisData:= select ['StockID'],DateToStr(['date']) as 'Date',TimeToStr(timeof(['date'])) as 'Time',
+                    ['open'],['close'],['high'],['low'],['vol'],
+                    ['sectional_cjbs'] As 'OI', //持仓量
+                    Tempbase[['StockID']] As 'SettleDate'
+                  from markettable datekey ThisDate to ThisDate+0.999999 of TempContract end;
+      AllData&= ThisData;
+
+      end;
+
+    return AllData ;
+
+4.取300ETF基金的日度交易数据
+
+//TSL Script file
+
+
+
+  ThisBegT:=20200729T;
+  ThisEndT:=20200730T;
+  ThisTradeDate:=MarketTradeDayQk(ThisBegT,ThisEndT); //交易日期
+  StockID:='SH510300';
+
+  AllData:=Array();
+   For DateI:=0 To Length(ThisTradeDate)-1 Do
+   Begin
+      ThisDate:=ThisTradeDate[DateI];
+      TempContract:=StockID;
+      Tempbase:=array();
+      for j:=0 to length(TempContract)-1 do
+      ThisData:= select ['StockID'],DateToStr(['date']) as 'Date',TimeToStr(timeof(['date'])) as 'Time',
+                    ['open'],['close'],['high'],['low'],['vol']
+                  from markettable datekey ThisDate to ThisDate+0.999999 of TempContract end;
+      AllData&= ThisData;
+
+      end;
+
+    return AllData ;
